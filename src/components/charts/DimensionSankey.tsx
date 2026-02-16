@@ -7,7 +7,13 @@ import { CHEMICALS, LAYER_COLORS, LAYER_LABELS } from "../../data/chemicals";
 
 interface Props {
   matrixData: ShadowMatrixResponse | undefined;
+  mode: "work" | "private";
 }
+
+const MODE_TO_SECTION: Record<string, string> = {
+  work: "Behavioral",
+  private: "Personal",
+};
 
 const SECTION_COLORS: Record<string, string> = {
   Behavioral: "#6366f1",
@@ -153,25 +159,10 @@ function ToggleButton({
   );
 }
 
-export default function DimensionSankey({ matrixData }: Props) {
-  const [sections, setSections] = useState<Set<string>>(
-    () => new Set(["Behavioral", "Personal"]),
-  );
+export default function DimensionSankey({ matrixData, mode }: Props) {
   const [layers, setLayers] = useState<Set<Layer>>(
     () => new Set(LAYERS),
   );
-
-  const toggleSection = (section: string) => {
-    setSections((prev) => {
-      const next = new Set(prev);
-      if (next.has(section)) {
-        if (next.size > 1) next.delete(section);
-      } else {
-        next.add(section);
-      }
-      return next;
-    });
-  };
 
   const toggleLayer = (layer: Layer) => {
     setLayers((prev) => {
@@ -185,7 +176,11 @@ export default function DimensionSankey({ matrixData }: Props) {
     });
   };
 
-  const filters: Filters = useMemo(() => ({ sections, layers }), [sections, layers]);
+  const activeSection = MODE_TO_SECTION[mode];
+  const filters: Filters = useMemo(
+    () => ({ sections: new Set([activeSection]), layers }),
+    [activeSection, layers],
+  );
 
   const { nodes, links, hasData } = useMemo(
     () => buildGraph(matrixData, filters),
@@ -207,20 +202,12 @@ export default function DimensionSankey({ matrixData }: Props) {
     <div className="bg-gray-800 rounded-lg border border-gray-700 p-4">
       {/* Filter controls */}
       <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-3">
-          <span className="text-[10px] text-gray-500 uppercase tracking-wider">Section</span>
-          <div className="flex gap-1.5">
-            {Object.entries(SECTION_COLORS).map(([section, color]) => (
-              <ToggleButton
-                key={section}
-                active={sections.has(section)}
-                color={color}
-                label={section}
-                onClick={() => toggleSection(section)}
-              />
-            ))}
-          </div>
-        </div>
+        <span
+          className="text-[11px] font-medium px-2 py-0.5 rounded"
+          style={{ backgroundColor: SECTION_COLORS[activeSection] + "30", color: SECTION_COLORS[activeSection] }}
+        >
+          {activeSection}
+        </span>
         <div className="flex items-center gap-3">
           <span className="text-[10px] text-gray-500 uppercase tracking-wider">Layer</span>
           <div className="flex gap-1.5">
@@ -307,17 +294,13 @@ export default function DimensionSankey({ matrixData }: Props) {
           </span>
         ))}
         <span className="text-gray-700">→</span>
-        {Object.entries(SECTION_COLORS)
-          .filter(([section]) => sections.has(section))
-          .map(([section, color]) => (
-            <span key={section} className="flex items-center gap-1">
-              <span
-                className="w-3 h-1.5 rounded-sm inline-block"
-                style={{ backgroundColor: color }}
-              />
-              {section}
-            </span>
-          ))}
+        <span className="flex items-center gap-1">
+          <span
+            className="w-3 h-1.5 rounded-sm inline-block"
+            style={{ backgroundColor: SECTION_COLORS[activeSection] }}
+          />
+          {activeSection} Dimensions
+        </span>
       </div>
     </div>
   );

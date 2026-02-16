@@ -95,7 +95,7 @@ function PersonDetailContent({ name }: { name: string }) {
           <TrajectorySparklines dimensions={allDimensions} />
 
           {/* Row 3: Chemical → Dimension (Sankey) — full width */}
-          <DimensionSankey matrixData={matrixData} />
+          <DimensionSankey matrixData={matrixData} mode={mode} />
 
           {/* Row 4: Neurochemical Profile — full width */}
           <InteractionGraph dimensions={allDimensions} matrixData={matrixData} />
