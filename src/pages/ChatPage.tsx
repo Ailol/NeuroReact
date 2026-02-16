@@ -11,7 +11,7 @@ const COPILOT_URL =
 /* ---------- error boundary ---------- */
 
 class CopilotErrorBoundary extends Component<
-  { children: ReactNode; fallback: ReactNode },
+  { children: ReactNode; renderFallback: (onRetry: () => void) => ReactNode },
   { hasError: boolean }
 > {
   state = { hasError: false };
@@ -20,23 +20,33 @@ class CopilotErrorBoundary extends Component<
     return { hasError: true };
   }
 
+  handleRetry = () => {
+    this.setState({ hasError: false });
+  };
+
   render() {
-    if (this.state.hasError) return this.props.fallback;
+    if (this.state.hasError) return this.props.renderFallback(this.handleRetry);
     return this.props.children;
   }
 }
 
-function CopilotUnavailable() {
+function CopilotUnavailable({ onRetry }: { onRetry: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center h-full text-center p-8">
       <p className="text-sm text-yellow-300 mb-2">
         CopilotKit runtime unavailable
       </p>
-      <p className="text-xs text-gray-500">
+      <p className="text-xs text-gray-500 mb-4">
         Start it with{" "}
         <code className="bg-gray-900 px-1.5 py-0.5 rounded">npm run copilot</code>
         {" "}to use the chat.
       </p>
+      <button
+        onClick={onRetry}
+        className="px-4 py-2 text-sm font-medium rounded-md bg-indigo-600 hover:bg-indigo-500 text-white transition-colors"
+      >
+        Retry connection
+      </button>
     </div>
   );
 }
@@ -217,7 +227,9 @@ export default function ChatPage() {
     <div className="flex flex-col" style={{ height: "calc(100vh - 6rem)" }}>
       <h1 className="text-2xl font-bold mb-4">Chat</h1>
       <div className="copilot-chat-page flex-1 min-h-0 rounded-lg border border-gray-700 overflow-hidden">
-        <CopilotErrorBoundary fallback={<CopilotUnavailable />}>
+        <CopilotErrorBoundary
+          renderFallback={(onRetry) => <CopilotUnavailable onRetry={onRetry} />}
+        >
           <CopilotKit runtimeUrl={COPILOT_URL}>
             <ChatInner />
           </CopilotKit>

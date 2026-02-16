@@ -20,7 +20,7 @@ interface Props {
 /* ---------- error boundary ---------- */
 
 class CopilotErrorBoundary extends Component<
-  { children: ReactNode; fallback: ReactNode },
+  { children: ReactNode; renderFallback: (onRetry: () => void) => ReactNode },
   { hasError: boolean }
 > {
   state = { hasError: false };
@@ -29,23 +29,33 @@ class CopilotErrorBoundary extends Component<
     return { hasError: true };
   }
 
+  handleRetry = () => {
+    this.setState({ hasError: false });
+  };
+
   render() {
-    if (this.state.hasError) return this.props.fallback;
+    if (this.state.hasError) return this.props.renderFallback(this.handleRetry);
     return this.props.children;
   }
 }
 
-function CopilotUnavailableChat({ person }: { person: string }) {
+function CopilotUnavailableChat({ person, onRetry }: { person: string; onRetry: () => void }) {
   return (
     <div className="flex flex-col items-center justify-center h-full text-center p-4">
       <p className="text-xs text-yellow-300 mb-2">
         CopilotKit runtime unavailable
       </p>
-      <p className="text-[10px] text-gray-500">
+      <p className="text-[10px] text-gray-500 mb-3">
         Start it with{" "}
         <code className="bg-gray-900 px-1.5 py-0.5 rounded">npm run copilot</code>
         {" "}to chat about {person}.
       </p>
+      <button
+        onClick={onRetry}
+        className="px-3 py-1.5 text-xs font-medium rounded-md bg-indigo-600 hover:bg-indigo-500 text-white transition-colors"
+      >
+        Retry connection
+      </button>
     </div>
   );
 }
@@ -260,7 +270,9 @@ export default function ProfileChat(props: Props) {
       style={{ height: 480 }}
     >
       <CopilotErrorBoundary
-        fallback={<CopilotUnavailableChat person={props.person} />}
+        renderFallback={(onRetry) => (
+          <CopilotUnavailableChat person={props.person} onRetry={onRetry} />
+        )}
       >
         <CopilotKit runtimeUrl={COPILOT_URL}>
           <ProfileChatInner {...props} />
