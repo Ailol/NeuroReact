@@ -36,7 +36,7 @@ export default function ChemicalHeatmap({ person }: Props) {
       const dayMap = dateBins.get(day)!;
       const key = entry.chemical.toLowerCase();
       if (!dayMap.has(key)) dayMap.set(key, []);
-      dayMap.get(key)!.push(entry.modulationFactor);
+      dayMap.get(key)!.push(entry.intensityFactor);
     }
 
     const sortedDates = [...dateBins.keys()].sort();

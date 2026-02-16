@@ -22,7 +22,7 @@ export default function ModulationDistribution({ person }: Props) {
     if (!data?.entries?.length)
       return { bins: [], mean: 0, median: 0, skewLabel: "", totalEntries: 0 };
 
-    const values = data.entries.map((e) => e.modulationFactor).sort((a, b) => a - b);
+    const values = data.entries.map((e) => e.intensityFactor).sort((a, b) => a - b);
     const n = values.length;
 
     // Mean

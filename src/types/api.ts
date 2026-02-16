@@ -127,7 +127,7 @@ export interface DimensionsResponse {
 
 export interface ProfileTimelineEntry {
   chemical: string;
-  modulationFactor: number;
+  intensityFactor: number;
   createdAt: string;
 }
 
@@ -163,6 +163,57 @@ export interface ChemicalSeam {
   dimensionLevels: { dimension: string; level: number }[];
   highDimension: string;
   lowDimension: string;
+}
+
+// ── Chemicals (master) ──────────────────────────────────────────────────────
+
+export interface ChemicalEntry {
+  id: number;
+  key: string;
+  label: string;
+  layer: string;
+}
+
+export interface ChemicalListResponse {
+  chemicals: ChemicalEntry[];
+}
+
+// ── Dimensions (master) ─────────────────────────────────────────────────────
+
+export interface DimensionAffinity {
+  chemicalKey: string;
+  weight: number;
+}
+
+export interface DimensionEntry {
+  id: number;
+  name: string;
+  section: string;
+  category: string;
+  description: string;
+  workRelevance: number;
+  privateRelevance: number;
+  sortOrder: number;
+  affinities: DimensionAffinity[];
+}
+
+// ── Chemical Interactions ───────────────────────────────────────────────────
+
+export interface ChemicalInteractionEntry {
+  id: number;
+  sourceKey: string;
+  sourceLabel: string;
+  sourceLayer: string;
+  targetKey: string;
+  targetLabel: string;
+  targetLayer: string;
+  modFactor: number;
+  mechanism: string | null;
+  notes: string | null;
+}
+
+export interface ChemicalInteractionListResponse {
+  interactions: ChemicalInteractionEntry[];
 }
 
 // ── Embeddings ──────────────────────────────────────────────────────────────

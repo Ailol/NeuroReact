@@ -56,3 +56,27 @@ export function getChemicalsByLayer(layer: string): ChemicalMeta[] {
 export function getChemicalMeta(key: string): ChemicalMeta | undefined {
   return CHEMICALS.find((c) => c.key === key);
 }
+
+// ── Neon theme colors for ChemicalExplorer ─────────────────────────────────
+
+export const NEON_LAYER_COLORS = {
+  neurotransmitter: "#7c6cff",
+  hormone: "#ffaa00",
+  peptide: "#00ff99",
+} as const;
+
+/** Derive edge/bar color from mod_factor: +1 agonist → 0 stabilizer → -1 antagonist */
+export function interactionColor(modFactor: number): string {
+  if (modFactor > 0.3) return "#00ff88";    // agonist — neon green
+  if (modFactor < -0.3) return "#ff3366";   // antagonist — neon red
+  return "#00ccff";                          // stabilizer — neon cyan
+}
+
+/** Derive category label from mod_factor */
+export function interactionLabel(modFactor: number): string {
+  if (modFactor >= 0.75) return "Agonist";
+  if (modFactor >= 0.25) return "Partial Agonist";
+  if (modFactor > -0.25) return "Stabilizer";
+  if (modFactor > -0.75) return "Partial Antagonist";
+  return "Antagonist";
+}

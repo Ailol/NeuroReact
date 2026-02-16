@@ -8,6 +8,7 @@ import DimensionSankey from "../components/charts/DimensionSankey";
 import ArchetypeCards from "../components/charts/ArchetypeCards";
 import TrajectorySparklines from "../components/charts/TrajectorySparklines";
 import InteractionGraph from "../components/charts/InteractionGraph";
+import ChemicalExplorer from "../components/charts/ChemicalExplorer";
 import SeamCards from "../components/charts/SeamCards";
 import ProfileChat from "../components/ProfileChat";
 
@@ -97,7 +98,10 @@ function PersonDetailContent({ name }: { name: string }) {
           {/* Row 3: Chemical → Dimension (Sankey) — full width */}
           <DimensionSankey matrixData={matrixData} mode={mode} />
 
-          {/* Row 4: Neurochemical Profile — full width */}
+          {/* Row 4: Chemical Network Explorer — full width */}
+          <ChemicalExplorer matrixData={matrixData} />
+
+          {/* Row 5: Neurochemical Profile — full width */}
           <InteractionGraph dimensions={allDimensions} matrixData={matrixData} />
         </div>
 

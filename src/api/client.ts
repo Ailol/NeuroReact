@@ -13,6 +13,9 @@ import type {
   JournalAnalyzeResponse,
   RelationshipListResponse,
   BackfillResponse,
+  ChemicalEntry,
+  DimensionEntry,
+  ChemicalInteractionEntry,
 } from "../types/api";
 
 const BASE = import.meta.env.VITE_API_URL ?? "";
@@ -54,6 +57,17 @@ export const api = {
   },
   relationships: {
     list: () => get<RelationshipListResponse>("/api/relationships"),
+  },
+  chemicals: {
+    list: () => get<ChemicalEntry[]>("/api/chemicals"),
+  },
+  dimensions: {
+    list: () => get<DimensionEntry[]>("/api/dimensions"),
+  },
+  chemicalInteractions: {
+    list: () => get<ChemicalInteractionEntry[]>("/api/chemical-interactions"),
+    forChemical: (key: string) =>
+      get<ChemicalInteractionEntry[]>(`/api/chemical-interactions/${encodeURIComponent(key)}`),
   },
   embeddings: {
     backfill: (person?: string) => post<BackfillResponse>("/api/embeddings/backfill", person ? { person } : {}),
