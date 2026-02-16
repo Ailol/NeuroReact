@@ -15,6 +15,11 @@ const MODE_TO_SECTION: Record<string, string> = {
   private: "Personal",
 };
 
+const MODE_LABELS: Record<string, string> = {
+  work: "Work",
+  private: "Private",
+};
+
 const SECTION_COLORS: Record<string, string> = {
   Behavioral: "#6366f1",
   Personal: "#10b981",
@@ -206,7 +211,7 @@ export default function DimensionSankey({ matrixData, mode }: Props) {
           className="text-[11px] font-medium px-2 py-0.5 rounded"
           style={{ backgroundColor: SECTION_COLORS[activeSection] + "30", color: SECTION_COLORS[activeSection] }}
         >
-          {activeSection}
+          {MODE_LABELS[mode]}
         </span>
         <div className="flex items-center gap-3">
           <span className="text-[10px] text-gray-500 uppercase tracking-wider">Layer</span>
@@ -299,7 +304,7 @@ export default function DimensionSankey({ matrixData, mode }: Props) {
             className="w-3 h-1.5 rounded-sm inline-block"
             style={{ backgroundColor: SECTION_COLORS[activeSection] }}
           />
-          {activeSection} Dimensions
+          {MODE_LABELS[mode]} Dimensions
         </span>
       </div>
     </div>
