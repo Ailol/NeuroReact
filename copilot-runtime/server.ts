@@ -6,15 +6,17 @@ import {
   copilotRuntimeNodeHttpEndpoint,
 } from "@copilotkit/runtime";
 
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY ?? "";
 const ORCHESTRATOR_MODEL = process.env.ORCHESTRATOR_MODEL ?? "claude-sonnet-4-20250514";
+const MCP_ENDPOINT = process.env.MCP_ENDPOINT ?? "http://100.104.149.87:13370/mcp";
 const PORT = parseInt(process.env.PORT ?? "4000");
 
 const app = express();
 app.use(cors());
 
 app.use("/copilotkit", (req, res, next) => {
-  const runtime = new CopilotRuntime();
+  const runtime = new CopilotRuntime({
+    mcpServers: [{ endpoint: MCP_ENDPOINT }],
+  });
 
   const handler = copilotRuntimeNodeHttpEndpoint({
     endpoint: "/copilotkit",
@@ -30,4 +32,5 @@ app.use("/copilotkit", (req, res, next) => {
 app.listen(PORT, () => {
   console.log(`CopilotKit runtime at http://localhost:${PORT}/copilotkit`);
   console.log(`Orchestrator model: ${ORCHESTRATOR_MODEL}`);
+  console.log(`MCP endpoint: ${MCP_ENDPOINT}`);
 });

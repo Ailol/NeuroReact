@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect, useMemo } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMemo } from "react";
+import { useCopilotAction, useCopilotReadable } from "@copilotkit/react-core";
+import { CopilotChat } from "@copilotkit/react-ui";
 import { api } from "../api/client";
 import type { DimensionScore } from "../types/api";
 import { useHighlight } from "../contexts/HighlightContext";
@@ -9,26 +10,15 @@ interface Props {
   dimensions: DimensionScore[];
 }
 
-interface ChatMessage {
-  role: "user" | "assistant";
-  content: string;
-}
-
-const LOADING_STEPS = [
-  "Thinking...",
-];
-
 function generateSuggestedQuestions(dims: DimensionScore[]): string[] {
   if (dims.length === 0) return [];
   const questions: string[] = [];
 
-  // Lowest confidence dimension
   const lowestConf = [...dims].sort((a, b) => a.confidence - b.confidence)[0];
   if (lowestConf && lowestConf.confidence < 0.7) {
     questions.push(`What drives their ${lowestConf.name}? (low confidence)`);
   }
 
-  // Highest trajectory slope
   const withTrajectory = dims.filter((d) => d.trajectory && Math.abs(d.trajectory.slope) > 0.005);
   if (withTrajectory.length > 0) {
     const fastest = withTrajectory.sort(
@@ -38,19 +28,16 @@ function generateSuggestedQuestions(dims: DimensionScore[]): string[] {
     questions.push(`Their ${fastest.name} is ${dir} - what's changing?`);
   }
 
-  // Most evidence
   const mostEvidence = [...dims].sort((a, b) => b.evidenceCount - a.evidenceCount)[0];
   if (mostEvidence && mostEvidence.evidenceCount > 5) {
     questions.push(`Tell me about their ${mostEvidence.name} (${mostEvidence.evidenceCount} data points)`);
   }
 
-  // Conflicted circuit
   const conflicted = dims.find((d) => d.circuit?.pattern?.includes("Conflicted"));
   if (conflicted) {
     questions.push(`Their ${conflicted.name} shows conflicting signals - why?`);
   }
 
-  // High score dimension
   const highest = [...dims].sort((a, b) => b.score - a.score)[0];
   if (highest) {
     questions.push(`What makes their ${highest.name} so strong?`);
@@ -60,170 +47,126 @@ function generateSuggestedQuestions(dims: DimensionScore[]): string[] {
 }
 
 export default function ProfileChat({ person, dimensions }: Props) {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [input, setInput] = useState("");
-  const [loadingStep, setLoadingStep] = useState(0);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { highlight } = useHighlight();
+  const { setHighlight } = useHighlight();
 
-  const suggestedQuestions = useMemo(
-    () => generateSuggestedQuestions(dimensions),
-    [dimensions]
-  );
+  const suggestions = useMemo(() => {
+    const qs = generateSuggestedQuestions(dimensions);
+    return qs.map((q) => ({ title: q, message: q }));
+  }, [dimensions]);
 
-  // When a dimension is highlighted from a chart, show a contextual prompt
-  const highlightedQuestion = useMemo(() => {
-    if (highlight.dimension && highlight.source === "chart") {
-      return `Tell me about their ${highlight.dimension}`;
-    }
-    return null;
-  }, [highlight]);
+  // Make dimension names available so the AI can reference them
+  useCopilotReadable({
+    description: `Available dimension names for ${person} that can be highlighted on charts`,
+    value: dimensions.map((d) => d.name),
+  }, [dimensions]);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  useEffect(scrollToBottom, [messages]);
-
-  const mutation = useMutation({
-    mutationFn: (text: string) => {
-      const history = [
-        ...messages.map((m) => ({ role: m.role === "user" ? "user" : "assistant", content: m.content })),
-        { role: "user" as const, content: text },
-      ];
-      return api.analyze.orchestrator(person, history);
+  // Frontend action: analyze a chat message for this person
+  useCopilotAction({
+    name: "analyze_chat",
+    description: `Analyze a chat/conversation message to update ${person}'s biochemical profile. Use this when the user provides a conversation excerpt or message to analyze.`,
+    parameters: [
+      { name: "text", type: "string", description: "The chat message text to analyze", required: true },
+      { name: "relationship", type: "string", description: "Relationship type (e.g. 'colleague', 'friend')", required: false },
+      { name: "save", type: "boolean", description: "Whether to save to profile (default true)", required: false },
+    ],
+    handler: async ({ text, relationship, save }) => {
+      const result = await api.analyze.chat({
+        person,
+        text,
+        relationship,
+        save: save ?? true,
+      });
+      return JSON.stringify({
+        decisions: result.decisions,
+        synthesis: result.synthesis,
+        suggestedResponse: result.suggestedResponse,
+      });
     },
-    onMutate: () => {
-      setLoadingStep(0);
-      const interval = setInterval(() => {
-        setLoadingStep((prev) => Math.min(prev + 1, LOADING_STEPS.length - 1));
-      }, 3000);
-      return interval;
-    },
-    onSuccess: (data, _, interval) => {
-      clearInterval(interval as unknown as number);
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: data.response,
-        },
-      ]);
-    },
-    onError: (err, _, interval) => {
-      clearInterval(interval as unknown as number);
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: `Error: ${err.message}` },
-      ]);
-    },
-  });
+  }, [person]);
 
-  const sendMessage = (text: string) => {
-    if (!text.trim() || mutation.isPending) return;
-    setMessages((prev) => [...prev, { role: "user", content: text }]);
-    setInput("");
-    mutation.mutate(text);
-  };
+  // Frontend action: analyze work-related text
+  useCopilotAction({
+    name: "analyze_work",
+    description: `Analyze work-related text (emails, reports, feedback) to update ${person}'s profile.`,
+    parameters: [
+      { name: "text", type: "string", description: "The work text to analyze", required: true },
+      { name: "relationship", type: "string", description: "Work relationship type", required: false },
+      { name: "save", type: "boolean", description: "Whether to save to profile (default true)", required: false },
+    ],
+    handler: async ({ text, relationship, save }) => {
+      const result = await api.analyze.work({
+        person,
+        text,
+        relationship,
+        save: save ?? true,
+      });
+      return JSON.stringify({
+        decisionsCount: result.decisionsCount,
+        decisions: result.decisions,
+        synthesis: result.synthesis,
+      });
+    },
+  }, [person]);
+
+  // Frontend action: analyze journal entry
+  useCopilotAction({
+    name: "analyze_journal",
+    description: `Analyze a personal journal entry to update ${person}'s profile.`,
+    parameters: [
+      { name: "text", type: "string", description: "The journal entry text to analyze", required: true },
+      { name: "save", type: "boolean", description: "Whether to save to profile (default true)", required: false },
+    ],
+    handler: async ({ text, save }) => {
+      const result = await api.analyze.journal({
+        person,
+        text,
+        save: save ?? true,
+      });
+      return JSON.stringify({
+        decisionsCount: result.decisionsCount,
+        decisions: result.decisions,
+        synthesis: result.synthesis,
+      });
+    },
+  }, [person]);
+
+  // Frontend action: highlight a dimension or chemical on the charts
+  useCopilotAction({
+    name: "highlight_dimension",
+    description: "Highlight a dimension or chemical on the profile charts to draw the user's attention to it.",
+    parameters: [
+      { name: "dimension", type: "string", description: "The dimension name to highlight", required: false },
+      { name: "chemical", type: "string", description: "The chemical name to highlight", required: false },
+    ],
+    handler: async ({ dimension, chemical }) => {
+      setHighlight({ dimension, chemical, source: "chat" });
+      return `Highlighted ${dimension ?? chemical ?? "nothing"} on the charts.`;
+    },
+  }, [setHighlight]);
 
   return (
-    <div className="flex flex-col h-full bg-gray-800 rounded-lg border border-gray-700">
-      <div className="px-4 py-3 border-b border-gray-700">
-        <h2 className="text-sm font-semibold">Ask about {person}</h2>
-      </div>
-
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-3 min-h-0">
-        {messages.length === 0 && !mutation.isPending && (
-          <div className="space-y-2">
-            <p className="text-xs text-gray-500">
-              Ask questions about this person's biochemical profile.
-            </p>
-            {/* Highlighted dimension prompt */}
-            {highlightedQuestion && (
-              <button
-                onClick={() => sendMessage(highlightedQuestion)}
-                className="w-full text-left p-2 rounded border border-indigo-500/30 bg-indigo-500/10 text-xs text-indigo-300 hover:bg-indigo-500/20"
-              >
-                {highlightedQuestion}
-              </button>
-            )}
-            {/* Suggested questions */}
-            {suggestedQuestions.map((q, i) => (
-              <button
-                key={i}
-                onClick={() => sendMessage(q)}
-                className="w-full text-left p-2 rounded border border-gray-700 text-xs text-gray-400 hover:text-gray-200 hover:border-gray-500"
-              >
-                {q}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {messages.map((msg, i) => (
-          <div key={i} className={msg.role === "user" ? "flex justify-end" : ""}>
-            <div
-              className={`max-w-[90%] rounded-lg p-3 text-sm ${
-                msg.role === "user"
-                  ? "bg-indigo-600/20 text-indigo-100"
-                  : "bg-gray-900 text-gray-200 border border-gray-700"
-              }`}
-            >
-              <p className="whitespace-pre-wrap">{msg.content}</p>
-            </div>
-          </div>
-        ))}
-
-        {/* Loading indicator */}
-        {mutation.isPending && (
-          <div className="bg-gray-900 rounded-lg p-3 border border-gray-700">
-            <div className="space-y-1">
-              {LOADING_STEPS.map((step, i) => (
-                <div
-                  key={i}
-                  className={`text-xs flex items-center gap-2 ${
-                    i <= loadingStep ? "text-gray-300" : "text-gray-600"
-                  }`}
-                >
-                  {i < loadingStep ? (
-                    <span className="text-green-400">&#10003;</span>
-                  ) : i === loadingStep ? (
-                    <span className="animate-pulse text-indigo-400">&#9679;</span>
-                  ) : (
-                    <span className="text-gray-600">&#9675;</span>
-                  )}
-                  {step}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div ref={messagesEndRef} />
-      </div>
-
-      {/* Input */}
-      <div className="p-3 border-t border-gray-700">
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && sendMessage(input)}
-            placeholder="Ask about their profile..."
-            className="flex-1 bg-gray-900 border border-gray-700 rounded px-3 py-2 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-indigo-500"
-            disabled={mutation.isPending}
-          />
-          <button
-            onClick={() => sendMessage(input)}
-            disabled={!input.trim() || mutation.isPending}
-            className="px-4 py-2 bg-indigo-600 rounded text-sm text-white hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Ask
-          </button>
-        </div>
-      </div>
+    <div
+      className="copilot-profile-chat flex flex-col bg-gray-800 rounded-lg border border-gray-700 overflow-hidden"
+      style={{ height: 480 }}
+    >
+      <CopilotChat
+        className="h-full"
+        instructions={[
+          `You are an expert analyst for ${person}'s biochemical personality profile in the NeuroReact system.`,
+          `The user is viewing ${person}'s profile page with dimension charts, archetype cards, trajectory sparklines, chemical sankey diagrams, and seam cards.`,
+          `You have access to their full dimension scores, profile data, and shadow matrix via context.`,
+          `You can run analysis on new text (chat, work, journal) using the analyze_* actions — use analyze_chat for conversation messages, analyze_work for emails/reports, analyze_journal for personal reflections.`,
+          `You can highlight dimensions/chemicals on the charts using highlight_dimension.`,
+          `You also have access to MCP tools from the backend for deeper queries.`,
+          `Be concise but insightful. Reference specific dimension scores, trajectories, and patterns when answering.`,
+        ].join("\n")}
+        labels={{
+          title: `Ask about ${person}`,
+          placeholder: "Ask about their profile...",
+          initial: "Ask questions about this person's biochemical profile, run analysis on new text, or explore their dimensions.",
+        }}
+        suggestions={suggestions}
+      />
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { CopilotKit } from "@copilotkit/react-core";
 import Shell from "./components/layout/Shell";
 import DashboardPage from "./pages/DashboardPage";
 import PersonsPage from "./pages/PersonsPage";
@@ -15,22 +16,27 @@ const queryClient = new QueryClient({
   },
 });
 
+const COPILOT_URL =
+  import.meta.env.VITE_COPILOT_URL ?? "http://localhost:4000/copilotkit";
+
 export default function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <Routes>
-          <Route element={<Shell />}>
-            <Route index element={<DashboardPage />} />
-            <Route path="persons" element={<PersonsPage />} />
-            <Route path="persons/:name" element={<PersonDetailPage />} />
-            <Route path="analyze" element={<AnalyzePage />} />
-            <Route path="chat" element={<ChatPage />} />
-            <Route path="ml" element={<MlPipelinePage />} />
-            <Route path="settings" element={<SettingsPage />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
-    </QueryClientProvider>
+    <CopilotKit runtimeUrl={COPILOT_URL}>
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <Routes>
+            <Route element={<Shell />}>
+              <Route index element={<DashboardPage />} />
+              <Route path="persons" element={<PersonsPage />} />
+              <Route path="persons/:name" element={<PersonDetailPage />} />
+              <Route path="analyze" element={<AnalyzePage />} />
+              <Route path="chat" element={<ChatPage />} />
+              <Route path="ml" element={<MlPipelinePage />} />
+              <Route path="settings" element={<SettingsPage />} />
+            </Route>
+          </Routes>
+        </BrowserRouter>
+      </QueryClientProvider>
+    </CopilotKit>
   );
 }

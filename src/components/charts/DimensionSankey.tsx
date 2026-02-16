@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import Highcharts from "highcharts";
 import "highcharts/modules/sankey";
 import HighchartsReact from "highcharts-react-official";
@@ -15,15 +15,31 @@ const SECTION_COLORS: Record<string, string> = {
 };
 
 const LAYERS = ["neurotransmitter", "hormone", "peptide"] as const;
+type Layer = (typeof LAYERS)[number];
 
-function buildGraph(matrixData: ShadowMatrixResponse | undefined) {
+interface Filters {
+  sections: Set<string>;
+  layers: Set<Layer>;
+}
+
+function buildGraph(
+  matrixData: ShadowMatrixResponse | undefined,
+  filters: Filters,
+) {
   if (!matrixData?.cells?.length)
     return { nodes: [], links: [], hasData: false };
+
+  const filtered = matrixData.cells.filter((cell) => {
+    if (!filters.sections.has(cell.section)) return false;
+    const layer = (cell.layer || "unknown") as Layer;
+    if (!filters.layers.has(layer)) return false;
+    return true;
+  });
 
   const chemToLayer = new Map<string, { layer: string; totalWeight: number }>();
   const layerToDim = new Map<string, number>();
 
-  for (const cell of matrixData.cells) {
+  for (const cell of filtered) {
     const weight = cell.shadowLevel * Math.log2(cell.entryCount + 1);
     if (weight <= 0.5) continue;
 
@@ -54,7 +70,12 @@ function buildGraph(matrixData: ShadowMatrixResponse | undefined) {
     }
   }
 
+  // Only add layer hub nodes for active layers that have data
+  const activeLayers = new Set<string>();
+  for (const info of chemToLayer.values()) activeLayers.add(info.layer);
+
   for (const layer of LAYERS) {
+    if (!activeLayers.has(layer)) continue;
     const id = `layer_${layer}`;
     if (!addedNodes.has(id)) {
       nodeList.push({
@@ -66,7 +87,9 @@ function buildGraph(matrixData: ShadowMatrixResponse | undefined) {
     }
   }
 
-  for (const cell of matrixData.cells) {
+  for (const cell of filtered) {
+    const weight = cell.shadowLevel * Math.log2(cell.entryCount + 1);
+    if (weight <= 0.5) continue;
     const dimId = `dim_${cell.dimension}`;
     if (!addedNodes.has(dimId)) {
       nodeList.push({
@@ -104,13 +127,72 @@ function buildGraph(matrixData: ShadowMatrixResponse | undefined) {
   return { nodes: nodeList, links: linkList, hasData: linkList.length > 0 };
 }
 
+function ToggleButton({
+  active,
+  color,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  color: string;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`px-2.5 py-1 text-[11px] font-medium rounded-md border transition-all ${
+        active
+          ? "text-white border-transparent"
+          : "text-gray-500 border-gray-700 bg-gray-900/50 hover:text-gray-300"
+      }`}
+      style={active ? { backgroundColor: color } : undefined}
+    >
+      {label}
+    </button>
+  );
+}
+
 export default function DimensionSankey({ matrixData }: Props) {
-  const { nodes, links, hasData } = useMemo(
-    () => buildGraph(matrixData),
-    [matrixData]
+  const [sections, setSections] = useState<Set<string>>(
+    () => new Set(["Behavioral", "Personal"]),
+  );
+  const [layers, setLayers] = useState<Set<Layer>>(
+    () => new Set(LAYERS),
   );
 
-  if (!hasData) {
+  const toggleSection = (section: string) => {
+    setSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(section)) {
+        if (next.size > 1) next.delete(section);
+      } else {
+        next.add(section);
+      }
+      return next;
+    });
+  };
+
+  const toggleLayer = (layer: Layer) => {
+    setLayers((prev) => {
+      const next = new Set(prev);
+      if (next.has(layer)) {
+        if (next.size > 1) next.delete(layer);
+      } else {
+        next.add(layer);
+      }
+      return next;
+    });
+  };
+
+  const filters: Filters = useMemo(() => ({ sections, layers }), [sections, layers]);
+
+  const { nodes, links, hasData } = useMemo(
+    () => buildGraph(matrixData, filters),
+    [matrixData, filters],
+  );
+
+  if (!matrixData?.cells?.length) {
     return (
       <div className="bg-gray-800 rounded-lg border border-gray-700 p-4">
         <h2 className="text-sm font-semibold mb-1">Dimension Source Flow</h2>
@@ -123,77 +205,119 @@ export default function DimensionSankey({ matrixData }: Props) {
 
   return (
     <div className="bg-gray-800 rounded-lg border border-gray-700 p-4">
-      <HighchartsReact
-        highcharts={Highcharts}
-        options={
-          {
-            chart: {
-              backgroundColor: "transparent",
-              height: 650,
-            },
-            title: {
-              text: "Chemical → Layer → Dimension",
-              style: { color: "#d1d5db", fontSize: "13px", fontWeight: "600" },
-            },
-            credits: { enabled: false },
-            tooltip: {
-              backgroundColor: "#1f2937",
-              borderColor: "#374151",
-              style: { color: "#d1d5db" },
-              nodeFormat: "{point.name}",
-              pointFormat:
-                "{point.fromNode.name} → {point.toNode.name}: <b>{point.weight:.1f}</b>",
-            },
-            plotOptions: {
-              sankey: {
-                nodeWidth: 20,
-                nodePadding: 6,
-                curveFactor: 0.5,
-                dataLabels: {
-                  enabled: true,
-                  style: {
-                    color: "#9ca3af",
-                    fontSize: "9px",
-                    textOutline: "none",
-                    fontWeight: "400",
+      {/* Filter controls */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-3">
+          <span className="text-[10px] text-gray-500 uppercase tracking-wider">Section</span>
+          <div className="flex gap-1.5">
+            {Object.entries(SECTION_COLORS).map(([section, color]) => (
+              <ToggleButton
+                key={section}
+                active={sections.has(section)}
+                color={color}
+                label={section}
+                onClick={() => toggleSection(section)}
+              />
+            ))}
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="text-[10px] text-gray-500 uppercase tracking-wider">Layer</span>
+          <div className="flex gap-1.5">
+            {LAYERS.map((layer) => (
+              <ToggleButton
+                key={layer}
+                active={layers.has(layer)}
+                color={LAYER_COLORS[layer]}
+                label={LAYER_LABELS[layer]}
+                onClick={() => toggleLayer(layer)}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {!hasData ? (
+        <p className="text-xs text-gray-500 text-center py-8">
+          No data matches the current filters.
+        </p>
+      ) : (
+        <HighchartsReact
+          highcharts={Highcharts}
+          options={
+            {
+              chart: {
+                backgroundColor: "transparent",
+                height: 650,
+              },
+              title: {
+                text: "Chemical → Layer → Dimension",
+                style: { color: "#d1d5db", fontSize: "13px", fontWeight: "600" },
+              },
+              credits: { enabled: false },
+              tooltip: {
+                backgroundColor: "#1f2937",
+                borderColor: "#374151",
+                style: { color: "#d1d5db" },
+                nodeFormat: "{point.name}",
+                pointFormat:
+                  "{point.fromNode.name} → {point.toNode.name}: <b>{point.weight:.1f}</b>",
+              },
+              plotOptions: {
+                sankey: {
+                  nodeWidth: 20,
+                  nodePadding: 6,
+                  curveFactor: 0.5,
+                  dataLabels: {
+                    enabled: true,
+                    style: {
+                      color: "#9ca3af",
+                      fontSize: "9px",
+                      textOutline: "none",
+                      fontWeight: "400",
+                    },
                   },
                 },
               },
-            },
-            series: [
-              {
-                type: "sankey" as const,
-                name: "Chemical → Layer → Dimension",
-                nodes,
-                data: links,
-                keys: ["from", "to", "weight", "color"],
-              },
-            ],
-          } as Highcharts.Options
-        }
-      />
+              series: [
+                {
+                  type: "sankey" as const,
+                  name: "Chemical → Layer → Dimension",
+                  nodes,
+                  data: links,
+                  keys: ["from", "to", "weight", "color"],
+                },
+              ],
+            } as Highcharts.Options
+          }
+        />
+      )}
+
+      {/* Legend */}
       <div className="flex items-center gap-4 mt-2 text-[10px] text-gray-500 justify-center">
         <span className="text-gray-600">Chemicals</span>
         <span className="text-gray-700">→</span>
-        {Object.entries(LAYER_COLORS).map(([layer, color]) => (
+        {LAYERS.filter((l) => layers.has(l)).map((layer) => (
           <span key={layer} className="flex items-center gap-1">
             <span
               className="w-3 h-1.5 rounded-sm inline-block"
-              style={{ backgroundColor: color }}
+              style={{ backgroundColor: LAYER_COLORS[layer] }}
             />
-            {LAYER_LABELS[layer] ?? layer}
+            {LAYER_LABELS[layer]}
           </span>
         ))}
         <span className="text-gray-700">→</span>
-        {Object.entries(SECTION_COLORS).map(([section, color]) => (
-          <span key={section} className="flex items-center gap-1">
-            <span
-              className="w-3 h-1.5 rounded-sm inline-block"
-              style={{ backgroundColor: color }}
-            />
-            {section}
-          </span>
-        ))}
+        {Object.entries(SECTION_COLORS)
+          .filter(([section]) => sections.has(section))
+          .map(([section, color]) => (
+            <span key={section} className="flex items-center gap-1">
+              <span
+                className="w-3 h-1.5 rounded-sm inline-block"
+                style={{ backgroundColor: color }}
+              />
+              {section}
+            </span>
+          ))}
       </div>
     </div>
   );

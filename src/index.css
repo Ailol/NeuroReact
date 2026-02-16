@@ -4,3 +4,28 @@ body {
   margin: 0;
   min-height: 100vh;
 }
+
+/* CopilotKit dark theme overrides */
+.copilot-profile-chat,
+.copilot-chat-page {
+  --copilot-kit-primary-color: rgb(129 140 248);
+  --copilot-kit-contrast-color: rgb(255 255 255);
+  --copilot-kit-background-color: rgb(31 41 55);
+  --copilot-kit-input-background-color: rgb(17 24 39);
+  --copilot-kit-secondary-color: rgb(17 24 39);
+  --copilot-kit-secondary-contrast-color: rgb(229 231 235);
+  --copilot-kit-separator-color: rgb(55 65 81);
+  --copilot-kit-muted-color: rgb(107 114 128);
+  --copilot-kit-error-background: rgb(127 29 29);
+  --copilot-kit-error-border: rgb(220 38 38);
+  --copilot-kit-error-text: rgb(252 165 165);
+  --copilot-kit-shadow-sm: none;
+  --copilot-kit-shadow-md: none;
+  --copilot-kit-shadow-lg: none;
+}
+
+.copilot-profile-chat .copilotKitMessages,
+.copilot-chat-page .copilotKitMessages {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(75 85 99) transparent;
+}
