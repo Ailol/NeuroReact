@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { useCopilotReadable } from "@copilotkit/react-core";
 import { api } from "../api/client";
 import { HighlightProvider } from "../contexts/HighlightContext";
 import DimensionsDisplay from "../components/charts/DimensionsDisplay";
@@ -40,50 +39,6 @@ function PersonDetailContent({ name }: { name: string }) {
     ...(dimsQuery.data?.behavioral ?? []),
     ...(dimsQuery.data?.personal ?? []),
   ];
-
-  // Feed person context to CopilotKit so the AI knows about the current profile
-  useCopilotReadable({
-    description: `Person profile for ${name}`,
-    value: profile
-      ? {
-          person: profile.person,
-          communicationStyle: profile.communicationStyle,
-          chemicalCounts: profile.chemicalCounts,
-          mode,
-        }
-      : null,
-  }, [profile, mode]);
-
-  useCopilotReadable({
-    description: `Dimension scores for ${name} (${mode} mode) — each dimension has a score 0-1, confidence, consistency, evidence count, trajectory (slope/direction), and circuit coherence`,
-    value: allDimensions.length > 0
-      ? allDimensions.map((d) => ({
-          name: d.name,
-          section: d.section,
-          category: d.category,
-          score: d.score,
-          confidence: d.confidence,
-          consistency: d.consistency,
-          evidenceCount: d.evidenceCount,
-          trajectory: d.trajectory
-            ? { slope: d.trajectory.slope, direction: d.trajectory.direction, r2: d.trajectory.r2 }
-            : null,
-          circuitPattern: d.circuit?.pattern ?? null,
-          circuitCoherence: d.circuit?.coherenceScore ?? null,
-        }))
-      : null,
-  }, [allDimensions]);
-
-  useCopilotReadable({
-    description: `Shadow matrix for ${name} — maps chemicals to dimensions with shadow levels and confidence`,
-    value: matrixData
-      ? {
-          dimensions: matrixData.dimensions,
-          chemicals: matrixData.chemicals,
-          cellCount: matrixData.cells.length,
-        }
-      : null,
-  }, [matrixData]);
 
   if (isLoading) return <p className="text-gray-500">Loading profile...</p>;
 
@@ -155,7 +110,13 @@ function PersonDetailContent({ name }: { name: string }) {
             matrixData={matrixData}
             selectedChemical={selectedChemical}
           />
-          <ProfileChat person={name} dimensions={allDimensions} />
+          <ProfileChat
+            person={name}
+            mode={mode}
+            dimensions={allDimensions}
+            profile={profile}
+            matrixData={matrixData}
+          />
         </div>
       </div>
     </div>

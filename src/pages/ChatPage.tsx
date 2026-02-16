@@ -1,9 +1,49 @@
+import { Component, type ReactNode } from "react";
+import { CopilotKit } from "@copilotkit/react-core";
 import { useCopilotAction, useCopilotReadable } from "@copilotkit/react-core";
 import { CopilotChat } from "@copilotkit/react-ui";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client";
 
-export default function ChatPage() {
+const COPILOT_URL =
+  import.meta.env.VITE_COPILOT_URL ?? "http://localhost:4000/copilotkit";
+
+/* ---------- error boundary ---------- */
+
+class CopilotErrorBoundary extends Component<
+  { children: ReactNode; fallback: ReactNode },
+  { hasError: boolean }
+> {
+  state = { hasError: false };
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  render() {
+    if (this.state.hasError) return this.props.fallback;
+    return this.props.children;
+  }
+}
+
+function CopilotUnavailable() {
+  return (
+    <div className="flex flex-col items-center justify-center h-full text-center p-8">
+      <p className="text-sm text-yellow-300 mb-2">
+        CopilotKit runtime unavailable
+      </p>
+      <p className="text-xs text-gray-500">
+        Start it with{" "}
+        <code className="bg-gray-900 px-1.5 py-0.5 rounded">npm run copilot</code>
+        {" "}to use the chat.
+      </p>
+    </div>
+  );
+}
+
+/* ---------- inner chat (inside CopilotKit context) ---------- */
+
+function ChatInner() {
   const { data: persons } = useQuery({
     queryKey: ["persons"],
     queryFn: () => api.persons.list(),
@@ -147,29 +187,41 @@ export default function ChatPage() {
   });
 
   return (
+    <CopilotChat
+      className="h-full"
+      instructions={[
+        "You are NeuroReact's AI assistant — an expert in biochemical personality profiling.",
+        "You have access to all persons tracked in the system and can analyze new text, fetch profiles and dimensions, and create new persons.",
+        "You also have access to MCP tools from the backend for deeper queries and orchestration.",
+        "When analyzing text, always specify which person it's for.",
+        "Be concise and insightful. Reference specific dimension scores and patterns when discussing a person.",
+      ].join("\n")}
+      labels={{
+        title: "NeuroReact Chat",
+        placeholder: "Ask about persons, analyze text, or explore profiles...",
+        initial: "Ask me anything about the persons in NeuroReact. I can analyze conversations, look up profiles, fetch dimensions, and more.",
+      }}
+      suggestions={[
+        { title: "List all persons", message: "Who are all the persons being tracked?" },
+        { title: "Analyze a conversation", message: "I'd like to analyze a conversation for someone." },
+        { title: "Compare dimensions", message: "Can you compare the dimension profiles of two people?" },
+      ]}
+    />
+  );
+}
+
+/* ---------- page component ---------- */
+
+export default function ChatPage() {
+  return (
     <div className="flex flex-col" style={{ height: "calc(100vh - 6rem)" }}>
       <h1 className="text-2xl font-bold mb-4">Chat</h1>
       <div className="copilot-chat-page flex-1 min-h-0 rounded-lg border border-gray-700 overflow-hidden">
-        <CopilotChat
-          className="h-full"
-          instructions={[
-            "You are NeuroReact's AI assistant — an expert in biochemical personality profiling.",
-            "You have access to all persons tracked in the system and can analyze new text, fetch profiles and dimensions, and create new persons.",
-            "You also have access to MCP tools from the backend for deeper queries and orchestration.",
-            "When analyzing text, always specify which person it's for.",
-            "Be concise and insightful. Reference specific dimension scores and patterns when discussing a person.",
-          ].join("\n")}
-          labels={{
-            title: "NeuroReact Chat",
-            placeholder: "Ask about persons, analyze text, or explore profiles...",
-            initial: "Ask me anything about the persons in NeuroReact. I can analyze conversations, look up profiles, fetch dimensions, and more.",
-          }}
-          suggestions={[
-            { title: "List all persons", message: "Who are all the persons being tracked?" },
-            { title: "Analyze a conversation", message: "I'd like to analyze a conversation for someone." },
-            { title: "Compare dimensions", message: "Can you compare the dimension profiles of two people?" },
-          ]}
-        />
+        <CopilotErrorBoundary fallback={<CopilotUnavailable />}>
+          <CopilotKit runtimeUrl={COPILOT_URL}>
+            <ChatInner />
+          </CopilotKit>
+        </CopilotErrorBoundary>
       </div>
     </div>
   );
