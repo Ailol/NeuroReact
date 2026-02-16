@@ -13,6 +13,18 @@ const PORT = parseInt(process.env.PORT ?? "4000");
 const app = express();
 app.use(cors());
 
+// Info endpoint for CopilotKit client agent discovery
+app.get("/copilotkit/info", (_req, res) => {
+  res.json({
+    agents: {
+      default: {
+        name: "default",
+        description: "NeuroReact orchestrator",
+      },
+    },
+  });
+});
+
 app.use("/copilotkit", (req, res, next) => {
   const runtime = new CopilotRuntime({
     mcpServers: [{ endpoint: MCP_ENDPOINT }],
