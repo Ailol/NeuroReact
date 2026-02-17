@@ -57,6 +57,11 @@ function TrendCard({ dim }: { dim: DimensionScore }) {
           R&sup2;: {t.r2.toFixed(2)} &middot; {t.dataPoints} pts &middot;{" "}
           {t.earliestLevel.toFixed(1)} &rarr; {t.latestLevel.toFixed(1)}
         </div>
+        {t.semanticDriftDetected && (
+          <div className="text-[10px] text-amber-400 mt-0.5" title={`Drift magnitude: ${t.driftMagnitude.toFixed(2)}`}>
+            Semantic shift ({(t.driftMagnitude * 100).toFixed(0)}%)
+          </div>
+        )}
       </div>
     </div>
   );

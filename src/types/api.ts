@@ -86,6 +86,8 @@ export interface TemporalTrajectory {
   dataPoints: number;
   earliestLevel: number;
   latestLevel: number;
+  semanticDriftDetected: boolean;
+  driftMagnitude: number;
 }
 
 export interface ChemicalEdge {

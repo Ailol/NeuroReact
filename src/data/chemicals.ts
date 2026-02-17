@@ -65,11 +65,16 @@ export const NEON_LAYER_COLORS = {
   peptide: "#00ff99",
 } as const;
 
-/** Derive edge/bar color from mod_factor: +1 agonist → 0 stabilizer → -1 antagonist */
+/** Derive edge/bar color from mod_factor with intensity gradient.
+ *  Strong agonist (>0.7) → bright green, weak agonist (0.25-0.7) → muted green
+ *  Strong antagonist (<-0.7) → bright red, weak antagonist (-0.25 to -0.7) → muted red
+ *  Stabilizer (-0.25 to 0.25) → neon cyan */
 export function interactionColor(modFactor: number): string {
-  if (modFactor > 0.3) return "#00ff88";    // agonist — neon green
-  if (modFactor < -0.3) return "#ff3366";   // antagonist — neon red
-  return "#00ccff";                          // stabilizer — neon cyan
+  if (modFactor > 0.7) return "#00ff88";     // strong agonist — bright neon green
+  if (modFactor > 0.25) return "#66cc88";    // partial agonist — muted green
+  if (modFactor < -0.7) return "#ff3366";    // strong antagonist — bright neon red
+  if (modFactor < -0.25) return "#cc6688";   // partial antagonist — muted red
+  return "#00ccff";                           // stabilizer — neon cyan
 }
 
 /** Derive category label from mod_factor */

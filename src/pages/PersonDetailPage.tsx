@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../api/client";
@@ -8,13 +8,13 @@ import DimensionSankey from "../components/charts/DimensionSankey";
 import ArchetypeCards from "../components/charts/ArchetypeCards";
 import TrajectorySparklines from "../components/charts/TrajectorySparklines";
 import InteractionGraph from "../components/charts/InteractionGraph";
-import ChemicalExplorer from "../components/charts/ChemicalExplorer";
+import GoalExplorer from "../components/charts/GoalExplorer";
 import SeamCards from "../components/charts/SeamCards";
-import ProfileChat from "../components/ProfileChat";
+import ProfileChat, { type ProfileChatHandle } from "../components/ProfileChat";
 
 function PersonDetailContent({ name }: { name: string }) {
   const [mode, setMode] = useState<"work" | "private">("work");
-  const [selectedChemical, setSelectedChemical] = useState<string | undefined>();
+  const chatRef = useRef<ProfileChatHandle>(null);
 
   const { data: profile, isLoading } = useQuery({
     queryKey: ["profile", name],
@@ -98,8 +98,13 @@ function PersonDetailContent({ name }: { name: string }) {
           {/* Row 3: Chemical → Dimension (Sankey) — full width */}
           <DimensionSankey matrixData={matrixData} mode={mode} />
 
-          {/* Row 4: Chemical Network Explorer — full width */}
-          <ChemicalExplorer matrixData={matrixData} />
+          {/* Row 4: Goal-Based Chemical Network — full width */}
+          <GoalExplorer
+            person={name}
+            mode={mode}
+            dimensions={allDimensions}
+            onChatQuestion={(q) => chatRef.current?.sendQuestion(q)}
+          />
 
           {/* Row 5: Neurochemical Profile — full width */}
           <InteractionGraph dimensions={allDimensions} matrixData={matrixData} />
@@ -112,9 +117,10 @@ function PersonDetailContent({ name }: { name: string }) {
         >
           <SeamCards
             matrixData={matrixData}
-            selectedChemical={selectedChemical}
+            selectedChemical={undefined}
           />
           <ProfileChat
+            ref={chatRef}
             person={name}
             mode={mode}
             dimensions={allDimensions}

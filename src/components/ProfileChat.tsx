@@ -1,7 +1,11 @@
-import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback, forwardRef, useImperativeHandle } from "react";
 import { api } from "../api/client";
 import type { DimensionScore, PersonProfileResponse, ShadowMatrixResponse } from "../types/api";
 import { useHighlight } from "../contexts/HighlightContext";
+
+export interface ProfileChatHandle {
+  sendQuestion: (question: string) => void;
+}
 
 interface Props {
   person: string;
@@ -92,7 +96,7 @@ function buildSystemContext(props: Props): string {
   return parts.join("\n");
 }
 
-export default function ProfileChat(props: Props) {
+const ProfileChat = forwardRef<ProfileChatHandle, Props>(function ProfileChat(props, ref) {
   const { person, dimensions } = props;
   const { setHighlight } = useHighlight();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -100,6 +104,7 @@ export default function ProfileChat(props: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const suggestions = useMemo(() => generateSuggestedQuestions(dimensions), [dimensions]);
   const systemContext = useMemo(() => buildSystemContext(props), [props]);
@@ -153,6 +158,13 @@ export default function ProfileChat(props: Props) {
     [loading, messages, person, systemContext],
   );
 
+  useImperativeHandle(ref, () => ({
+    sendQuestion: (question: string) => {
+      send(question);
+      containerRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    },
+  }), [send]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     send(input);
@@ -160,6 +172,7 @@ export default function ProfileChat(props: Props) {
 
   return (
     <div
+      ref={containerRef}
       className="flex flex-col bg-gray-800 rounded-lg border border-gray-700 overflow-hidden"
       style={{ height: 480 }}
     >
@@ -252,4 +265,6 @@ export default function ProfileChat(props: Props) {
       </form>
     </div>
   );
-}
+});
+
+export default ProfileChat;
